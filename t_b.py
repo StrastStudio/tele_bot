@@ -1,39 +1,68 @@
-import telebot as tb
-from random import choice
-TOKEN = "8061173589:AAE-d5G9ZpWhH4nGXxRuNdyrogdmvN-tccM"
+import telebot
+import random
 
-Bot = tb.TeleBot(TOKEN)
+API_TOKEN = "8061173589:AAE-d5G9ZpWhH4nGXxRuNdyrogdmvN-tccM"  # Укажи свой токен
+bot = telebot.TeleBot(API_TOKEN)
 
-Questions1 = [{"Quest": "Как называется уменьшенное изображение поверхности Земли на плоскости?", "Answer": "Карта"},
-           {"Quest": "Что такое глобус?", "Answer": "Модель земного шара"},
-           {"Quest": "Сколько материков на Земле?", "Answer": "6"},
-           {"Quest": "Какой самый большой океан?", "Answer": "Тихий"},
-           {"Quest": "Какая планета Солнечной системы самая большая?", "Answer": "Юпитер"}]
+questions = {
+    'easy': [
+        {"question": "Какой океан самый большой?", "options": ["Атлантический", "Индийский", "Тихий", "Северный Ледовитый"], "answer": "Тихий"},
+        {"question": "Какой континент считается родиной пингвинов?", "options": ["Австралия", "Антарктида", "Африка", "Южная Америка"], "answer": "Антарктида"}
+    ],
+    'medium': [
+        {"question": "Какая столица Канады?", "options": ["Торонто", "Оттава", "Ванкувер", "Монреаль"], "answer": "Оттава"},
+        {"question": "Какой самый длинный река в мире?", "options": ["Нил", "Амазонка", "Миссисипи", "Янцзы"], "answer": "Нил"}
+    ],
+    'hard': [
+        {"question": "Какое государство является самым маленьким в мире?", "options": ["Монако", "Ватикан", "Сингапур", "Люксембург"], "answer": "Ватикан"},
+        {"question": "Какой самый высокий водопад в мире?", "options": ["Тугела", "Анхель", "Игуасу", "Ниагара"], "answer": "Анхель"}
+    ]
+}
 
-Questions2 = [{"Quest": "Какие типы климата выделяют в зависимости от температуры и количества осадков?",
-           "Answer": "Арктический, Субарктический, Умеренный, Тропический, Экваториальный и др"},
-           {"Quest": "В чём разница между параллелями и меридианами?",
-            "Answer": "Параллели — это линии, которые идут параллельно экватору, а меридианы — линии, которые проходят через полюса"},
-           {"Quest": "Какие факторы влияют на формирование рельефа?", "Answer": "Движение тектонических плит, эрозия, осадконакопление, вулканическая активность"},
-           {"Quest": "Какие природные зоны расположены на территории России?", "Answer": "Тундра, тайга, смешанные леса, широколиственные леса, степи, пустыни"},
-           {"Quest": "Чем отличаются друг от друга остров и полуостров?", "Answer": "Остров полностью окружён водой, а полуостров соединён с сушей"}]
+# Словарь для отслеживания пользователей
+user_data = {}
 
-Questions3 = [{"Quest": "Почему возникают приливы и отливы?", "Answer": "Из-за гравитационного взаимодействия Земли с Луной и Солнцем"},
-           {"Quest": "Как образуются горы и равнины?",
-            "Answer": "Горы образуются в результате движения тектонических плит и вулканической активности, а равнины — в результате эрозии и осадконакопления"},
-           {"Quest": "Каковы последствия глобального потепления для окружающей среды?",
-            "Answer": "Повышение уровня моря, изменение климатических условий, таяние ледников, вымирание видов"},
-           {"Quest": "Как влияет деятельность человека на изменение климата?", "Answer": "Выбросы парниковых газов, вырубка лесов, сельское хозяйство, урбанизация"},
-           {"Quest": "Какие страны входят в десятку крупнейших по площади?", "Answer": "Россия, Канада, США, Китай, Бразилия, Австралия, Индия, Аргентина, Казахстан, Судан"}]
-
-@Bot.message_handler(commands=["start"])
+@bot.message_handler(commands=['start'])
 def start(message):
-    Bot.send_message(message.chat.id, f"Здрастье {message.from_user.first_name}, напиши уровень сложности для теста по географии!!! Easy, Medium, Hard!!!")
+    bot.send_message(message.chat.id, "Привет! Хочешь поиграть в викторину по географии? Выбери уровень сложности: /easy, /medium, /hard")
 
+@bot.message_handler(commands=['easy', 'medium', 'hard'])
+def select_difficulty(message):
+    level = message.text[1:]  # Получаем уровень сложности
+    if level in questions:
+        user_data[message.chat.id] = {"level": level, "score": 0, "current_question": 0}
+        send_question(message.chat.id)
+    else:
+        bot.send_message(message.chat.id, "Такого уровня сложности нет. Пожалуйста, выбери /easy, /medium или /hard.")
 
-@Bot.message_handler(commands=["Easy"])
-def quest1(message):
-    Bot.send_message(message.chat.id, f"Уровень сложности: 1\nВопрос: {choice(Questions1)["Quest"]}")
+def send_question(chat_id):
+    user_info = user_data[chat_id]
+    level = user_info["level"]
+    question_data = questions[level][user_info["current_question"]]
+    
+    question_text = question_data["question"] + "\n" + "\n".join(question_data["options"])
+    bot.send_message(chat_id, question_text)
 
+@bot.message_handler(func=lambda message: message.chat.id in user_data)
+def check_answer(message):
+    user_info = user_data[message.chat.id]
+    level = user_info["level"]
+    question_data = questions[level][user_info["current_question"]]
 
-Bot.polling()
+    correct_answer = question_data["answer"]
+    if message.text == correct_answer:
+        user_info["score"] += 1
+        bot.send_message(message.chat.id, "Верно! У тебя сейчас " + str(user_info["score"]) + " очков.")
+    else:
+        bot.send_message(message.chat.id, "Неправильно. Правильный ответ: " + correct_answer)
+        
+    user_info["current_question"] += 1
+
+    if user_info["current_question"] < len(questions[level]):
+        send_question(message.chat.id)
+    else:
+        bot.send_message(message.chat.id, f"Игра окончена! Твой результат: {user_info['score']} очков.")
+        del user_data[message.chat.id]  # Очищаем данные пользователя
+
+if __name__ == '__main__':
+    bot.polling(none_stop=True)
